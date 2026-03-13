@@ -1,0 +1,24 @@
+# Rust build artifacts
+/target/
+/artifacts/
+
+# Python cache artifacts
+__pycache__/
+*.pyc
+*.pyo
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Plugin binaries are build outputs; keep only placeholder
+/TNoise/bin/*
+!/TNoise/bin/.gitkeep
+/TNoise/_color_ramp_presets.json
+
+# Local debug/build logs
+build_err.txt
+
+# Docker extraction output
+/output_linux/
+
