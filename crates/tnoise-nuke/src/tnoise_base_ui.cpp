@@ -2564,6 +2564,40 @@
   void _request(int x, int y, int r, int t, ChannelMask, int count) override {
     if (has_pref_input_runtime()) {
       input(0)->request(x, y, r, t, Mask_RGBA, count);
+
+      bool need_pref_center_points = false;
+      {
+        Guard guard(pref_center_cache_lock_);
+        need_pref_center_points =
+            pref_center_cache_dirty_ || domainwarp_pref_center_cache_dirty_;
+      }
+
+      // engine_cpu() samples PRef at center/domainwarp_center to build stable
+      // center caches. Request these pixels only when the cache is dirty to
+      // avoid exploding the upstream cache with tiny repeated point requests.
+      if (need_pref_center_points) {
+        const Format& pf = input0().format();
+        if (pf.r() > pf.x() && pf.t() > pf.y()) {
+          auto clamp_pref_point = [&](double center_x, double center_y, int& cx, int& cy) {
+            cx = static_cast<int>(std::floor(center_x));
+            cy = static_cast<int>(std::floor(center_y));
+            cx = clamp_compat(cx, pf.x(), pf.r() - 1);
+            cy = clamp_compat(cy, pf.y(), pf.t() - 1);
+          };
+
+          int main_cx = 0;
+          int main_cy = 0;
+          clamp_pref_point(center_[0], center_[1], main_cx, main_cy);
+          input(0)->request(main_cx, main_cy, main_cx + 1, main_cy + 1, Mask_RGBA, count);
+
+          int domain_cx = 0;
+          int domain_cy = 0;
+          clamp_pref_point(domainwarp_center_[0], domainwarp_center_[1], domain_cx, domain_cy);
+          if (domain_cx != main_cx || domain_cy != main_cy) {
+            input(0)->request(domain_cx, domain_cy, domain_cx + 1, domain_cy + 1, Mask_RGBA, count);
+          }
+        }
+      }
     }
     if (has_warp_input_runtime()) {
       input(1)->request(x, y, r, t, Mask_RGBA, count);
@@ -2572,3 +2606,4 @@
       input(2)->request(x, y, r, t, Mask_RGBA, count);
     }
   }
+
