@@ -55,6 +55,7 @@
         warp_iop = warp_op->iop();
       }
     }
+    const bool pref_has_alpha = use_pref && input0().channels().contains(Chan_Alpha);
     const bool mask_has_alpha = (mask_iop != nullptr) && mask_iop->channels().contains(Chan_Alpha);
     float pref_center[3] = {0.0f, 0.0f, 0.0f};
     bool pref_center_valid = false;
@@ -160,11 +161,16 @@
             cy = std::max(pf.y(), std::min(cy, pf.t() - 1));
 
             Row pref_center_row(cx, cx + 1);
-            pref_center_row.get(input0(), cy, cx, cx + 1, Mask_RGB);
+            pref_center_row.get(input0(), cy, cx, cx + 1,
+                                pref_has_alpha ? Mask_RGBA : Mask_RGB);
             const float* cr = pref_center_row[Chan_Red];
             const float* cg = pref_center_row[Chan_Green];
             const float* cb = pref_center_row[Chan_Blue];
-            out_valid = true;
+            const float* ca = pref_has_alpha ? pref_center_row[Chan_Alpha] : nullptr;
+            out_valid = !pref_has_alpha || (ca && ca[cx] > 0.0f);
+            if (!out_valid) {
+              return;
+            }
             if (cr) {
               out_center[0] = cr[cx];
             }
@@ -524,6 +530,7 @@
                               const float* sample_pref_r,
                               const float* sample_pref_g,
                               const float* sample_pref_b,
+                              const float* sample_pref_a,
                               const float* sample_mask_r,
                               const float* sample_mask_a,
                               const float* sample_warp_r,
@@ -543,6 +550,9 @@
       float domainwarp_base_sz = 0.0f;
 
       if (use_pref) {
+        const bool pref_valid =
+            !pref_has_alpha || (sample_pref_a && sample_pref_a[source_x] > 0.0f);
+        if (pref_valid) {
           const float raw_sx = sample_pref_r ? sample_pref_r[source_x] : 0.0f;
           const float raw_sy = sample_pref_g ? sample_pref_g[source_x] : 0.0f;
           const float raw_sz = sample_pref_b ? sample_pref_b[source_x] : 0.0f;
@@ -570,6 +580,7 @@
           sample_valid = true;
           pref_space = true;
           use_time = true;
+        }
       } else {
         main_base_sx = static_cast<float>(source_x);
         main_base_sy = static_cast<float>(source_y);
@@ -989,6 +1000,7 @@
     const float* sample_pref_r = nullptr;
     const float* sample_pref_g = nullptr;
     const float* sample_pref_b = nullptr;
+    const float* sample_pref_a = nullptr;
     const float* sample_mask_r = nullptr;
     const float* sample_mask_a = nullptr;
     const float* sample_warp_r = nullptr;
@@ -996,10 +1008,12 @@
     const float* sample_warp_b = nullptr;
 
     if (use_pref) {
-      pref_row_local.get(input0(), eval_y, x, r, Mask_RGB);
+      pref_row_local.get(input0(), eval_y, x, r,
+                         pref_has_alpha ? Mask_RGBA : Mask_RGB);
       sample_pref_r = pref_row_local[Chan_Red];
       sample_pref_g = pref_row_local[Chan_Green];
       sample_pref_b = pref_row_local[Chan_Blue];
+      sample_pref_a = pref_has_alpha ? pref_row_local[Chan_Alpha] : nullptr;
     }
     if (mask_iop) {
       mask_row_local.get(*mask_iop, eval_y, x, r, Mask_RGBA);
@@ -1025,7 +1039,7 @@
         if (apply_halftone_post) {
           const NoiseRGBA s = evaluate_pixel(
               src_x, eval_y, px, eval_y,
-              sample_pref_r, sample_pref_g, sample_pref_b,
+              sample_pref_r, sample_pref_g, sample_pref_b, sample_pref_a,
               sample_mask_r, sample_mask_a,
               sample_warp_r, sample_warp_g, sample_warp_b);
           if (out_channels[0]) {
@@ -1044,7 +1058,7 @@
         } else if (!has_last_sample || src_x != last_src_x) {
           last_sample = evaluate_pixel(
               src_x, eval_y, src_x, eval_y,
-              sample_pref_r, sample_pref_g, sample_pref_b,
+              sample_pref_r, sample_pref_g, sample_pref_b, sample_pref_a,
               sample_mask_r, sample_mask_a,
               sample_warp_r, sample_warp_g, sample_warp_b);
           last_src_x = src_x;
@@ -1071,7 +1085,7 @@
     for (int px = x; px < r; ++px) {
       const NoiseRGBA s = evaluate_pixel(
           px, eval_y, px, eval_y,
-          sample_pref_r, sample_pref_g, sample_pref_b,
+          sample_pref_r, sample_pref_g, sample_pref_b, sample_pref_a,
           sample_mask_r, sample_mask_a,
           sample_warp_r, sample_warp_g, sample_warp_b);
       if (out_channels[0]) {
@@ -1129,4 +1143,5 @@
     }
     return nullptr;
   }
+
 
