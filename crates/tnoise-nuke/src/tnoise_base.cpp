@@ -394,6 +394,7 @@ class TNoiseBase : public Iop {
   DomainwarpFlowCacheKey domainwarp_flow_base_cache_key_ = {};
   std::shared_ptr<const std::vector<float>> domainwarp_flow_base_cache_data_;
   Lock domainwarp_flow_cache_lock_;
+  Lock domainwarp_flow_build_lock_;
   mutable bool projection_lon_cache_valid_ = false;
   mutable int projection_lon_cache_min_x_ = 0;
   mutable int projection_lon_cache_width_ = 0;

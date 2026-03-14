@@ -420,11 +420,13 @@
       downsample_factor *= 2;
     }
 
-    std::vector<float> work = data;
+    std::vector<float> work;
     int work_w = width;
     int work_h = height;
     if (downsample_factor > 1) {
       downsample_flow_cache_box(data, width, height, downsample_factor, work, work_w, work_h);
+    } else {
+      work = data;
     }
 
     const float effective_sigma = sigma / static_cast<float>(downsample_factor);
@@ -494,6 +496,7 @@
   bool build_domainwarp_flow_cache_view(const DomainwarpFlowCacheKey& key,
                                         DomainwarpFlowCacheView& view) {
     view = DomainwarpFlowCacheView{};
+    Guard build_guard(domainwarp_flow_build_lock_);
     if (key.format_r <= key.format_x || key.format_t <= key.format_y) {
       return false;
     }
@@ -689,7 +692,7 @@
     }
 
     if (need_blur_build) {
-      std::vector<float> blurred_data = blur_source;
+      std::vector<float> blurred_data = std::move(blur_source);
       const float scaled_blur =
           key.map_blur / std::max(1.0f, static_cast<float>(cache_factor));
       apply_gaussian_blur_to_flow_cache(blurred_data, width, height, scaled_blur);
@@ -1348,3 +1351,4 @@
     }
     return clamp01(value);
   }
+

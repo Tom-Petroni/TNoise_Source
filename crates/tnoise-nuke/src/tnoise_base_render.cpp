@@ -125,8 +125,12 @@
 
     DomainwarpFlowCacheView domainwarp_flow_cache_view;
     const DomainwarpFlowCacheView* domainwarp_flow_cache_view_ptr = nullptr;
+    const bool unstable_spiral_vector_blur =
+        !use_warp && !use_pref && needs_vector_blur &&
+        (domainwarp_vector_mode_ == DW_VECTOR_DERIVATIVE);
     const bool needs_flow_cache =
-        !use_warp && !use_pref && (needs_vector_blur || (needs_map_blur && domainwarp_active));
+        !use_warp && !use_pref && !unstable_spiral_vector_blur &&
+        (needs_vector_blur || (needs_map_blur && domainwarp_active));
     if (needs_flow_cache) {
       const DomainwarpFlowCacheKey flow_cache_key = build_domainwarp_flow_cache_key(
           domainwarp_seed,
