@@ -2563,7 +2563,7 @@
 
   void _request(int x, int y, int r, int t, ChannelMask, int count) override {
     if (has_pref_input_runtime()) {
-      input(0)->request(x, y, r, t, Mask_RGB, count);
+      input(0)->request(x, y, r, t, Mask_RGBA, count);
 
       bool need_pref_center_points = false;
       {
@@ -2588,13 +2588,13 @@
           int main_cx = 0;
           int main_cy = 0;
           clamp_pref_point(center_[0], center_[1], main_cx, main_cy);
-          input(0)->request(main_cx, main_cy, main_cx + 1, main_cy + 1, Mask_RGB, count);
+          input(0)->request(main_cx, main_cy, main_cx + 1, main_cy + 1, Mask_RGBA, count);
 
           int domain_cx = 0;
           int domain_cy = 0;
           clamp_pref_point(domainwarp_center_[0], domainwarp_center_[1], domain_cx, domain_cy);
           if (domain_cx != main_cx || domain_cy != main_cy) {
-            input(0)->request(domain_cx, domain_cy, domain_cx + 1, domain_cy + 1, Mask_RGB, count);
+            input(0)->request(domain_cx, domain_cy, domain_cx + 1, domain_cy + 1, Mask_RGBA, count);
           }
         }
       }
