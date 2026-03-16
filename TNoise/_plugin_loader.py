@@ -72,15 +72,79 @@ def _get_arch():
 
 def _build_plugin_path():
     """Build expected plugin path in installed package."""
+    version_folder = _resolve_version_folder()
     return normalized_path(
         os.path.join(
             INSTALLATION_PATH,
             PLUGIN_BIN_DIRECTORY,
-            _get_nuke_version(),
+            version_folder,
             _get_operating_system_name(),
             _get_arch(),
         )
     )
+
+
+def _is_minor_version_folder(name):
+    """Return True for folders in Major.Minor format."""
+    parts = name.split(".")
+    return len(parts) == 2 and all(part.isdigit() for part in parts)
+
+
+def _resolve_version_folder():
+    """Resolve the best available version folder for the running Nuke."""
+    requested = _get_nuke_version()
+    plugin_bin_root = os.path.join(INSTALLATION_PATH, PLUGIN_BIN_DIRECTORY)
+
+    if os.path.isdir(os.path.join(plugin_bin_root, requested)):
+        return requested
+
+    if not os.path.isdir(plugin_bin_root):
+        return requested
+
+    try:
+        available = [
+            entry
+            for entry in os.listdir(plugin_bin_root)
+            if _is_minor_version_folder(entry)
+            and os.path.isdir(os.path.join(plugin_bin_root, entry))
+        ]
+    except OSError:
+        return requested
+
+    try:
+        requested_major, requested_minor = (
+            int(part) for part in requested.split(".", 1)
+        )
+    except ValueError:
+        return requested
+
+    same_major = []
+    for entry in available:
+        major, minor = (int(part) for part in entry.split(".", 1))
+        if major == requested_major:
+            same_major.append((minor, entry))
+
+    if not same_major:
+        return requested
+
+    lower_or_equal = [entry for minor, entry in same_major if minor <= requested_minor]
+    if lower_or_equal:
+        selected = max(
+            lower_or_equal,
+            key=lambda version: int(version.split(".", 1)[1]),
+        )
+    else:
+        selected = min(
+            (entry for _, entry in same_major),
+            key=lambda version: int(version.split(".", 1)[1]),
+        )
+
+    logger.warning(
+        "TNoise binary folder '%s' not found, using '%s' fallback.",
+        requested,
+        selected,
+    )
+    return selected
 
 
 def add_plugin_path():
