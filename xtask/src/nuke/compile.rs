@@ -23,20 +23,33 @@ pub async fn compile_nuke(
     limit_threads: bool,
     use_zig: bool,
 ) -> Result<Vec<PathBuf>> {
-    get_sources(vec![target], versions.clone(), limit_threads).await?;
+    let mut missing_versions = Vec::new();
+    for version in &versions {
+        let ddimage_path = nuke_source_directory(version).join(format!(
+            "{}DDImage.{}",
+            dll_prefix(target),
+            dll_suffix(target)
+        ));
+        if !ddimage_path.exists() {
+            missing_versions.push(version.clone());
+        }
+    }
+
+    if !missing_versions.is_empty() {
+        get_sources(vec![target], missing_versions, limit_threads).await?;
+    }
 
     let mut binaries = vec![];
     for version in versions {
-        if !nuke_source_directory(&version)
-            .join(format!(
-                "{}DDImage.{}",
-                dll_prefix(target),
-                dll_suffix(target)
-            ))
-            .exists()
-        {
+        let ddimage_path = nuke_source_directory(&version).join(format!(
+            "{}DDImage.{}",
+            dll_prefix(target),
+            dll_suffix(target)
+        ));
+        if !ddimage_path.exists() {
             log::warn!(
-                "Skipping {version} as no sources could be found for this version on {target}"
+                "Skipping {version} as no sources could be found for this version on {target} (expected '{}')",
+                ddimage_path.display()
             );
             continue;
         }
